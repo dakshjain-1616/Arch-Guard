@@ -27,83 +27,17 @@ ArchGuard is a production-ready Python tool that detects architecture degradatio
 
 ## Architecture
 
-```mermaid
-flowchart TB
-    subgraph Input["Input Layer"]
-        CLI["CLI Commands"]
-        Config["YAML Config"]
-        Git["Git Integration"]
-    end
+<p align="center">
+  <img src="docs/architecture.svg" alt="ArchGuard architecture" width="100%"/>
+</p>
 
-    subgraph Core["Core Analysis Engine"]
-        AST["AST Parser"]
-        DepGraph["Dependency Graph Builder"]
-        BaseAnalyzer["Base Analyzer"]
-    end
-
-    subgraph Detectors["Detector Modules"]
-        CD["Circular Dependency"]
-        GC["God Class"]
-        SLB["Service Layer Bypass"]
-        MV["Magic Value"]
-        CC["Cyclomatic Complexity"]
-        LV["Layer Violation"]
-    end
-
-    subgraph Output["Output Layer"]
-        Table["Table Formatter"]
-        JSON["JSON Formatter"]
-        MD["Markdown Formatter"]
-        HTML["HTML Formatter"]
-    end
-
-    subgraph Delivery["Delivery Modes"]
-        CLI_OUT["CLI Output"]
-        Hook["Git Hooks"]
-        Action["GitHub Action"]
-    end
-
-    CLI --> AST
-    Config --> Core
-    Git --> Core
-    
-    AST --> BaseAnalyzer
-    DepGraph --> BaseAnalyzer
-    
-    BaseAnalyzer --> CD
-    BaseAnalyzer --> GC
-    BaseAnalyzer --> SLB
-    BaseAnalyzer --> MV
-    BaseAnalyzer --> CC
-    BaseAnalyzer --> LV
-    
-    CD --> Output
-    GC --> Output
-    SLB --> Output
-    MV --> Output
-    CC --> Output
-    LV --> Output
-    
-    Output --> Table
-    Output --> JSON
-    Output --> MD
-    Output --> HTML
-    
-    Table --> CLI_OUT
-    JSON --> CLI_OUT
-    MD --> Action
-    HTML --> Action
-    
-    CLI_OUT --> Hook
-```
+The CLI and YAML config feed the core engine (AST parser + dependency graph + base analyzer), which fans out to six detectors. Findings are graded by severity, rendered as Table / JSON / Markdown / HTML, and delivered through the CLI, git hooks, or the GitHub Action.
 
 ## Installation
 
 ### From PyPI (when published)
 
-```bash
-pip install archguard
-```
+Install with `pip install archguard`.
 
 ### From Source
 
@@ -115,180 +49,39 @@ pip install -e ".[dev]"
 
 ## Quick Start
 
-### 1. Initialize Configuration
-
-```bash
-archguard init
-```
-
-This creates a `.archguard.yml` configuration file in your project root.
-
-### 2. Run Analysis
-
-```bash
-# Scan current directory
-archguard scan
-
-# Scan specific path
-archguard scan ./src
-
-# Output as JSON
-archguard scan --format json --output report.json
-
-# Filter by severity
-archguard scan --severity high
-```
-
-### 3. View Trends
-
-```bash
-# Analyze trends over last 10 commits
-archguard trend
-
-# Custom number of commits
-archguard trend --commits 20
-```
+1. Run `archguard init` to create `.archguard.yml` in the project root.
+2. Run `archguard scan` to analyze the current tree, or point it at a path such as `archguard scan ./src`.
+3. Use `--format json --output report.json` when you want machine-readable results.
+4. Run `archguard trend` to review recent architecture drift over the last 10 commits.
 
 ## CLI Commands
 
 ### `scan` - Analyze Codebase
 
-```bash
-archguard scan [PATH] [OPTIONS]
-
-Options:
-  -f, --format [table|json|yaml|markdown|html]  Output format
-  -o, --output PATH                             Output file path
-  -d, --detectors TEXT                           Specific detectors to run
-  -s, --severity [critical|high|medium|low|info] Minimum severity
-  --fail-on-violations                          Exit with error if violations found
-
-Global options (before subcommand):
-  -c, --config PATH                             Path to configuration file
-  -v, --verbose                                 Enable verbose output
-```
+Use `archguard scan [PATH] [OPTIONS]`. Key flags are `--format`, `--output`, `--detectors`, `--severity`, and `--fail-on-violations`; global flags include `--config` and `--verbose`.
 
 ### `trend` - Analyze Trends
 
-```bash
-archguard trend [OPTIONS]
-
-Options:
-  -n, --commits INTEGER  Number of commits to analyze (default: 10)
-  -f, --format TEXT      Output format
-  -o, --output PATH      Output file path
-```
+Use `archguard trend [OPTIONS]` with `--commits`, `--format`, and `--output`.
 
 ### `init` - Create Configuration
 
-```bash
-archguard init [OPTIONS]
-
-Options:
-  -p, --path PATH  Config file path (default: .archguard.yml)
-```
+Use `archguard init [OPTIONS]`; `--path` selects the config file location.
 
 ### `config` - Manage Configuration
 
-```bash
-# Show all config
-archguard config
-
-# Get specific value
-archguard config output_format
-
-# Set value
-archguard config output_format json
-```
+`archguard config` shows the active configuration, while `archguard config output_format` reads a value and `archguard config output_format json` updates it.
 
 ## Configuration
 
 Create a `.archguard.yml` file in your project root:
-
-```yaml
-project_name: "My Project"
-project_root: "."
-
-# File patterns
-include_patterns:
-  - "**/*.py"
-
-exclude_patterns:
-  - "**/tests/**"
-  - "**/__pycache__/**"
-  - "**/venv/**"
-
-include_tests: false
-
-# Detector configurations
-detectors:
-  circular_dependency:
-    enabled: true
-    severity: high
-    options:
-      min_cycle_length: 2
-      max_cycles: 100
-
-  god_class:
-    enabled: true
-    severity: medium
-    options:
-      max_methods: 20
-      max_attributes: 15
-      max_lines: 500
-
-  service_layer_bypass:
-    enabled: true
-    severity: high
-
-  magic_value:
-    enabled: true
-    severity: low
-    options:
-      min_string_length: 3
-
-  cyclomatic_complexity:
-    enabled: true
-    severity: medium
-    options:
-      thresholds:
-        low: 10
-        medium: 20
-        high: 30
-        critical: 50
-
-  layer_violation:
-    enabled: true
-    severity: high
-
-# Output settings
-output_format: table
-fail_on_violations: false
-severity_threshold: low
-
-# Git settings
-git_enabled: true
-compare_branch: main
-max_commits: 10
-
-# Trend analysis
-trend_enabled: true
-trend_history_limit: 10
-```
+The config supports project metadata, include/exclude patterns, and per-detector options such as cycle length, maximum class size, and complexity thresholds. Output behavior, Git integration, and trend analysis are all controlled through the same file with simple key-value settings.
 
 ## Detectors
 
 ### Circular Dependency
 
 Detects circular import dependencies between modules.
-
-```python
-# Bad: module_a.py imports module_b.py, which imports module_a.py
-from module_b import func_b
-
-def func_a():
-    return func_b()
-```
 
 **Configuration:**
 - `min_cycle_length`: Minimum cycle length to report (default: 2)
@@ -338,19 +131,7 @@ Detects violations of layered architecture (e.g., presentation layer importing f
 
 ### Installation
 
-```bash
-# Install pre-commit hook
-python hooks/install.py
-
-# Install both hooks
-python hooks/install.py --pre-commit --pre-push
-
-# Force overwrite existing hooks
-python hooks/install.py --force
-
-# Uninstall hooks
-python hooks/install.py --uninstall
-```
+Use `python hooks/install.py` to install the pre-commit hook, add `--pre-commit --pre-push` to install both hooks, use `--force` to overwrite existing hooks, and `--uninstall` to remove them.
 
 ### Pre-commit Hook
 
@@ -364,136 +145,29 @@ Runs trend analysis before pushing to remote.
 
 ### Basic Usage
 
-```yaml
-name: ArchGuard Check
-
-on: [push, pull_request]
-
-jobs:
-  architecture-check:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - uses: archguard/archguard-action@v1
-        with:
-          path: '.'
-          format: 'table'
-          severity: 'medium'
-          fail-on-violations: 'false'
-```
+Use the ArchGuard GitHub Action on push or pull request workflows, check out the repository with full history, and pass the path, format, severity, and fail-on-violations settings as action inputs.
 
 ### Advanced Configuration
 
-```yaml
-name: ArchGuard Analysis
-
-on:
-  pull_request:
-    branches: [main]
-
-jobs:
-  analyze:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - uses: archguard/archguard-action@v1
-        with:
-          path: '.'
-          format: 'markdown'
-          severity: 'low'
-          enable-trend: 'true'
-          trend-commits: '10'
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: architecture-report
-          path: archguard-report.md
-```
+For deeper analysis, enable trend mode, select Markdown output, set the commit window, and upload the generated report as an artifact.
 
 ## Development
 
 ### Setup
 
-```bash
-# Clone repository
-git clone https://github.com/archguard/archguard.git
-cd archguard
-
-# Create virtual environment
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-
-# Install dependencies
-pip install -e ".[dev]"
-
-# Install pre-commit hooks
-pre-commit install
-```
+Clone the repository, create and activate a virtual environment, install `.[dev]`, and then run `pre-commit install`.
 
 ### Running Tests
 
-```bash
-# Run all tests
-pytest
-
-# Run with coverage
-pytest --cov=src/archguard --cov-report=html
-
-# Run specific test file
-pytest tests/unit/test_detectors.py
-
-# Run integration tests
-pytest tests/integration/
-```
+Run `pytest` for the full suite, `pytest --cov=src/archguard --cov-report=html` for coverage, `pytest tests/unit/test_detectors.py` for a targeted detector check, and `pytest tests/integration/` for integration coverage.
 
 ### Code Quality
 
-```bash
-# Run linter
-ruff check src/ tests/
-ruff check --fix src/ tests/
-
-# Run type checker
-pyright src/
-
-# Run all checks
-ruff check src/ tests/ && pyright src/
-```
+Use `ruff check src/ tests/` for linting, `ruff check --fix src/ tests/` for auto-fixes, `pyright src/` for type checking, and `ruff check src/ tests/ && pyright src/` for the combined gate.
 
 ## Project Structure
 
-```
-archguard/
-├── src/archguard/           # Main source code
-│   ├── analyzers/           # AST analysis framework
-│   ├── detectors/           # Architecture detectors
-│   ├── formatters/          # Output formatters
-│   ├── git/                 # Git integration
-│   ├── config/              # Configuration system
-│   ├── cli.py               # Command-line interface
-│   └── types.py             # Type definitions
-├── tests/                   # Test suite
-│   ├── unit/                # Unit tests
-│   └── integration/         # Integration tests
-├── hooks/                   # Git hooks
-│   ├── pre-commit           # Pre-commit hook
-│   ├── pre-push             # Pre-push hook
-│   └── install.py           # Hook installer
-├── github-action/           # GitHub Action
-│   ├── action.yml           # Action definition
-│   └── example-workflow.yml # Example workflow
-├── docs/                    # Documentation
-├── examples/                # Example configurations
-├── pyproject.toml           # Project configuration
-├── ruff.toml                # Ruff configuration
-└── README.md                # This file
-```
+Core layout: `src/archguard/` contains analyzers, detectors, formatters, Git integration, configuration, the CLI, and type definitions; `tests/` holds unit and integration coverage; `hooks/` contains Git hook scripts and the installer; `github-action/` stores the action definition and example workflow; `docs/` and `examples/` provide supporting material; and `pyproject.toml` plus `ruff.toml` define tooling.
 
 ## Contributing
 
@@ -548,8 +222,4 @@ No AI model dependency is required. ArchGuard uses deterministic local static an
 
 ## Testing
 
-```bash
-ruff check src/ tests/
-pyright src/
-pytest
-```
+Run `ruff check src/ tests/`, `pyright src/`, and `pytest`.

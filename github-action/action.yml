@@ -1,0 +1,146 @@
+name: 'ArchGuard Architecture Check'
+description: 'Run ArchGuard architecture drift detection on your codebase'
+author: 'ArchGuard Team'
+branding:
+  icon: 'shield'
+  color: 'blue'
+
+inputs:
+  path:
+    description: 'Path to analyze (default: repository root)'
+    required: false
+    default: '.'
+  config:
+    description: 'Path to ArchGuard configuration file'
+    required: false
+    default: ''
+  format:
+    description: 'Output format (table, json, yaml, markdown, html)'
+    required: false
+    default: 'table'
+  severity:
+    description: 'Minimum severity to report (critical, high, medium, low, info)'
+    required: false
+    default: 'low'
+  fail-on-violations:
+    description: 'Fail the action if violations are found'
+    required: false
+    default: 'false'
+  detectors:
+    description: 'Comma-separated list of detectors to run (default: all)'
+    required: false
+    default: ''
+  compare-branch:
+    description: 'Base branch for PR comparison'
+    required: false
+    default: 'main'
+  enable-trend:
+    description: 'Enable trend analysis'
+    required: false
+    default: 'true'
+  trend-commits:
+    description: 'Number of commits for trend analysis'
+    required: false
+    default: '10'
+
+outputs:
+  violations:
+    description: 'Total number of violations found'
+  status:
+    description: 'Analysis status (passed/failed)'
+  report:
+    description: 'Path to the generated report'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.10'
+
+    - name: Install ArchGuard
+      shell: bash
+      run: |
+        pip install archguard
+
+    - name: Run ArchGuard Scan
+      id: scan
+      shell: bash
+      run: |
+        # Build command
+        CMD="archguard scan ${{ inputs.path }}"
+        
+        # Add format
+        CMD="$CMD --format ${{ inputs.format }}"
+        
+        # Add severity
+        CMD="$CMD --severity ${{ inputs.severity }}"
+        
+        # Add config if provided
+        if [ -n "${{ inputs.config }}" ]; then
+          CMD="$CMD --config ${{ inputs.config }}"
+        fi
+        
+        # Add fail-on-violations
+        if [ "${{ inputs.fail-on-violations }}" = "true" ]; then
+          CMD="$CMD --fail-on-violations"
+        fi
+        
+        # Add detectors if specified
+        if [ -n "${{ inputs.detectors }}" ]; then
+          IFS=',' read -ra DETECTORS <<< "${{ inputs.detectors }}"
+          for detector in "${DETECTORS[@]}"; do
+            CMD="$CMD --detectors $detector"
+          done
+        fi
+        
+        # Run scan
+        echo "Running: $CMD"
+        $CMD || SCAN_EXIT=$?
+        
+        # Set outputs
+        echo "status=completed" >> $GITHUB_OUTPUT
+        
+        # Check if there were violations
+        if [ "${SCAN_EXIT:-0}" -ne 0 ]; then
+          echo "violations=found" >> $GITHUB_OUTPUT
+        else
+          echo "violations=none" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Run Trend Analysis
+      if: inputs.enable-trend == 'true' && github.event_name == 'pull_request'
+      shell: bash
+      run: |
+        echo "📊 Running trend analysis..."
+        archguard trend --commits ${{ inputs.trend-commits }} --format ${{ inputs.format }}
+
+    - name: Upload Report
+      if: inputs.format != 'table'
+      uses: actions/upload-artifact@v4
+      with:
+        name: archguard-report
+        path: |
+          archguard-report.*
+          archguard-report/
+        if-no-files-found: ignore
+
+    - name: Comment on PR
+      if: github.event_name == 'pull_request' && inputs.format == 'markdown'
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const fs = require('fs');
+          const path = 'archguard-report.md';
+          
+          if (fs.existsSync(path)) {
+            const report = fs.readFileSync(path, 'utf8');
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: '## 🛡️ ArchGuard Architecture Report\n\n' + report
+            });
+          }

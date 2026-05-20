@@ -1,0 +1,38 @@
+#!/bin/bash
+# ArchGuard Pre-Push Hook
+# This hook runs ArchGuard trend analysis before pushing
+
+set -e
+
+echo "🔍 ArchGuard: Running pre-push architecture analysis..."
+
+# Check if archguard is installed
+if ! command -v archguard &> /dev/null; then
+    echo "⚠️  ArchGuard not found in PATH. Trying to find it..."
+    
+    if [ -f "./venv/bin/archguard" ]; then
+        ARCHGUARD="./venv/bin/archguard"
+    elif [ -f "./.venv/bin/archguard" ]; then
+        ARCHGUARD="./.venv/bin/archguard"
+    elif [ -f "$HOME/.local/bin/archguard" ]; then
+        ARCHGUARD="$HOME/.local/bin/archguard"
+    else
+        echo "❌ ArchGuard not found. Please install it: pip install archguard"
+        exit 1
+    fi
+else
+    ARCHGUARD="archguard"
+fi
+
+# Get the current branch and remote
+CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+REMOTE_BRANCH="${2:-origin/main}"
+
+echo "📊 Analyzing architecture trends for branch: $CURRENT_BRANCH"
+
+# Run trend analysis
+$ARCHGUARD trend --commits 5 --format table || true
+
+echo ""
+echo "✅ Pre-push analysis complete!"
+exit 0

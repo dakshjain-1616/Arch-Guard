@@ -1,0 +1,85 @@
+name: ArchGuard Architecture Check
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  architecture-check:
+    name: Architecture Analysis
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # Full history for trend analysis
+
+    - name: Run ArchGuard
+      uses: archguard/archguard-action@v1
+      with:
+        path: '.'
+        format: 'table'
+        severity: 'medium'
+        fail-on-violations: 'false'
+        enable-trend: 'true'
+        trend-commits: '10'
+
+  # Example: Generate and upload HTML report
+  generate-report:
+    name: Generate Architecture Report
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Run ArchGuard with HTML output
+      uses: archguard/archguard-action@v1
+      with:
+        path: '.'
+        format: 'html'
+        severity: 'low'
+        fail-on-violations: 'false'
+
+    - name: Upload HTML Report
+      uses: actions/upload-artifact@v4
+      with:
+        name: architecture-report
+        path: archguard-report.html
+
+  # Example: PR comment with results
+  pr-comment:
+    name: Comment PR with Results
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Run ArchGuard
+      uses: archguard/archguard-action@v1
+      with:
+        path: '.'
+        format: 'markdown'
+        severity: 'low'
+
+    - name: Comment PR
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const fs = require('fs');
+          const report = fs.readFileSync('archguard-report.md', 'utf8');
+          
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: '## 🛡️ ArchGuard Architecture Report\n\n' + report
+          });

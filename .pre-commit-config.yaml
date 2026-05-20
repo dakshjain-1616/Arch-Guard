@@ -1,0 +1,50 @@
+# ArchGuard Pre-Commit Configuration
+# This file configures pre-commit hooks for the ArchGuard project itself
+
+repos:
+  # General file checks
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-json
+      - id: check-toml
+      - id: check-added-large-files
+        args: ['--maxkb=1000']
+      - id: check-merge-conflict
+      - id: check-case-conflict
+      - id: detect-private-key
+      - id: mixed-line-ending
+
+  # Python code formatting and linting
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.1.9
+    hooks:
+      # Run the linter
+      - id: ruff
+        args: [--fix, --exit-non-zero-on-fix]
+      # Run the formatter
+      - id: ruff-format
+
+  # Type checking with pyright
+  - repo: local
+    hooks:
+      - id: pyright
+        name: pyright
+        entry: pyright
+        language: system
+        types: [python]
+        pass_filenames: true
+
+  # ArchGuard self-check
+  - repo: local
+    hooks:
+      - id: archguard
+        name: ArchGuard Architecture Check
+        entry: python -m archguard scan
+        language: system
+        types: [python]
+        pass_filenames: true
+        args: ['--severity', 'medium']

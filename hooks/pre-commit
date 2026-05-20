@@ -1,0 +1,86 @@
+#!/bin/bash
+# ArchGuard Pre-Commit Hook
+# This hook runs ArchGuard analysis on staged Python files before committing
+
+set -e
+
+echo "🔍 ArchGuard: Running pre-commit architecture check..."
+
+# Check if archguard is installed
+if ! command -v archguard &> /dev/null; then
+    echo "⚠️  ArchGuard not found in PATH. Trying to find it..."
+    
+    # Try to find archguard in common locations
+    if [ -f "./venv/bin/archguard" ]; then
+        ARCHGUARD="./venv/bin/archguard"
+    elif [ -f "./.venv/bin/archguard" ]; then
+        ARCHGUARD="./.venv/bin/archguard"
+    elif [ -f "$HOME/.local/bin/archguard" ]; then
+        ARCHGUARD="$HOME/.local/bin/archguard"
+    else
+        echo "❌ ArchGuard not found. Please install it: pip install archguard"
+        exit 1
+    fi
+else
+    ARCHGUARD="archguard"
+fi
+
+# Get list of staged Python files
+STAGED_FILES=$(git diff --cached --name-only --diff-filter=ACM | grep '\.py$' || true)
+
+if [ -z "$STAGED_FILES" ]; then
+    echo "✅ No Python files staged for commit."
+    exit 0
+fi
+
+echo "📁 Analyzing staged Python files..."
+
+# Create temporary file list
+TEMP_FILE=$(mktemp)
+echo "$STAGED_FILES" > "$TEMP_FILE"
+
+# Run ArchGuard on staged files
+# Use --fail-on-violations to prevent commits with critical/high violations
+VIOLATIONS_FOUND=0
+
+for file in $STAGED_FILES; do
+    if [ -f "$file" ]; then
+        echo "  Checking: $file"
+        
+        # Run archguard scan on the file
+        # We don't use --fail-on-violations here to check all files
+        if ! $ARCHGUARD scan "$file" --format json --severity high 2>/dev/null | grep -q '"total_violations": 0'; then
+            VIOLATIONS_FOUND=1
+        fi
+    fi
+done
+
+rm -f "$TEMP_FILE"
+
+if [ $VIOLATIONS_FOUND -eq 1 ]; then
+    echo ""
+    echo "⚠️  Architecture violations detected in staged files!"
+    echo ""
+    echo "Run 'archguard scan' to see details."
+    echo ""
+    echo "To bypass this check (not recommended):"
+    echo "  git commit --no-verify"
+    echo ""
+    
+    # Check if we should block the commit based on severity
+    # Read from config if available
+    if [ -f ".archguard.yml" ]; then
+        # Check if fail_on_violations is set
+        if grep -q "fail_on_violations: true" .archguard.yml 2>/dev/null; then
+            echo "❌ Commit blocked due to architecture violations."
+            exit 1
+        fi
+    fi
+    
+    # By default, just warn but allow commit
+    echo "⚠️  Warning: Architecture issues found. Commit allowed."
+    exit 0
+fi
+
+echo "✅ ArchGuard check passed!"
+exit 0

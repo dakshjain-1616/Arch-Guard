@@ -108,7 +108,7 @@ pip install archguard
 ### From Source
 
 ```bash
-git clone [https://github.com/dakshjain-1616/archguard](https://github.com/dakshjain-1616/Arch-Guard)
+git clone https://github.com/dakshjain-1616/Arch-Guard
 cd archguard
 pip install -e ".[dev]"
 ```
